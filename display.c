@@ -452,18 +452,22 @@ void display_clear(void) {
 }
 
 void display_init(void) {
-    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket != -1) {
-        // Specify the server's IP address and port
-        struct sockaddr_in serverAddress;
-        serverAddress.sin_family = AF_INET;
-        serverAddress.sin_port   = htons(12345);    // Port 80 for HTTP
-        serverAddress.sin_addr.s_addr =
-            inet_addr("127.0.0.1");    // Use the web server's IP address
+    char* ipAddress = getenv("WEBUI_IP");
+    if (ipAddress != NULL) {
+        clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if (clientSocket != -1) {
+            // Specify the server's IP address and port
+            struct sockaddr_in serverAddress;
+            serverAddress.sin_family = AF_INET;
+            serverAddress.sin_port   = htons(12345);    // Port 80 for HTTP
+            serverAddress.sin_addr.s_addr =
+                inet_addr(ipAddress);    // Use the web server's IP address
 
-        // Connect to the web server
-        if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) != -1) {
-            connectionDone = 1;
+            // Connect to the web server
+            if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) !=
+                -1) {
+                connectionDone = 1;
+            }
         }
     }
     atexit(display_fini);
