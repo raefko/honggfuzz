@@ -23,14 +23,18 @@
 
 #include "display.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -71,12 +75,18 @@
 #define ESC_RESET_SETTINGS      "\033[!p"
 
 static char displayBuf[1024 * 1024];
+int         clientSocket;
+int         connectionDone = 0;
 static void display_start(void) {
     memset(displayBuf, '\0', sizeof(displayBuf));
 }
 
 static void display_stop(void) {
-    TEMP_FAILURE_RETRY(write(logFd(), displayBuf, strlen(displayBuf)));
+    if (connectionDone) {
+        send(clientSocket, displayBuf, strlen(displayBuf), 0);
+    } else {
+        TEMP_FAILURE_RETRY(write(logFd(), displayBuf, strlen(displayBuf)));
+    }
 }
 
 __attribute__((format(printf, 1, 2))) static void display_put(const char* fmt, ...) {
@@ -442,6 +452,20 @@ void display_clear(void) {
 }
 
 void display_init(void) {
+    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket != -1) {
+        // Specify the server's IP address and port
+        struct sockaddr_in serverAddress;
+        serverAddress.sin_family = AF_INET;
+        serverAddress.sin_port   = htons(12345);    // Port 80 for HTTP
+        serverAddress.sin_addr.s_addr =
+            inet_addr("127.0.0.1");    // Use the web server's IP address
+
+        // Connect to the web server
+        if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) != -1) {
+            connectionDone = 1;
+        }
+    }
     atexit(display_fini);
     display_clear();
 }
